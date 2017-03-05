@@ -5,10 +5,10 @@ import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (CONSOLE, log)
 --import Control.Applicative
 
-import Data.Array (index, length, replicate, singleton, concat, zip, mapMaybe, range, elem, takeWhile, catMaybes, take, concatMap, reverse)
+import Data.Array (index, length, replicate, singleton, concat, zip, mapMaybe, range, elem, takeWhile, catMaybes, take, concatMap, reverse, findIndex)
 import Data.String (Pattern(..), split, toCharArray, fromCharArray, joinWith)
 import Data.Tuple (Tuple(..), fst, snd, uncurry)
-import Data.Maybe (Maybe(..), isNothing, isJust)
+import Data.Maybe (Maybe(..), isNothing, isJust, fromMaybe)
 import Data.Char (toUpper)
 import Data.Traversable (traverse)
 import Data.Functor (mapFlipped, (<#>))
@@ -21,6 +21,41 @@ main :: forall e. Eff (console :: CONSOLE | e) Unit
 main = do
   log "Hello sailor!"
 
+--
+-- Position
+--
+findIndexFlipped :: forall a. Array a -> (a -> Boolean) -> Maybe Int  
+findIndexFlipped a b = findIndex b a
+  
+firstPieceIndex :: Color -> Array Square -> Board -> Maybe Int
+firstPieceIndex c sqs b = findIndexFlipped sqs \sq -> do
+  pieceColorAt sq b == Just c
+
+
+pieceAt :: Square -> Board -> Maybe Piece
+pieceAt = lookup
+
+pieceColor :: Piece -> Color
+pieceColor (Piece _ c) = c
+
+pieceType :: Piece -> PieceType
+pieceType (Piece t _) = t
+
+pieceTypeAt :: Square -> Board -> Maybe PieceType
+pieceTypeAt sq b = map pieceType (pieceAt sq b)
+
+pieceColorAt :: Square -> Board -> Maybe Color
+pieceColorAt sq b = map pieceColor (pieceAt sq b)
+
+opponent :: Color -> Color
+opponent White = Black
+opponent Black = White
+
+moveRange :: Piece -> Square -> Board -> Array (Array Square)
+moveRange pc sq b = pieceMoveSquares pc sq <#> \sqs -> do
+  let opp = firstPieceIndex (opponent (pieceColor pc)) sqs b
+      own = firstPieceIndex (pieceColor pc) sqs b
+  take (fromMaybe 8 (min opp own)) sqs
 
 --
 -- Squares and Offsets
@@ -61,27 +96,35 @@ forwardSquares c sq =
       x2 = x * 8
   in mapMaybe (offset' sq) (zip (range x x2) (replicate 8 0))
 
-pawnMoveSquares :: Color -> Square -> Array Square
-pawnMoveSquares c sq = let n = if initialPawnRank c == rank sq
-                               then 2
-                               else 1
-                       in take n (forwardSquares c sq)
+pawnMoveSquares' :: Color -> Square -> Array Square
+pawnMoveSquares' c sq = let n = if initialPawnRank c == rank sq
+                                then 2
+                                else 1
+                        in take n (forwardSquares c sq)
+
+pawnMoveSquares :: Color -> Square -> Array (Array Square)
+pawnMoveSquares c sq = map pure (pawnMoveSquares' c sq)
+
+
+kingSquares' :: Square -> Array Square
+kingSquares' = concatMap (take 1) <<< queenSquares
 
 
 
-kingSquares :: Square -> Array Square
-kingSquares = concatMap (take 1) <<< queenSquares
+knightSquares' :: Square -> Array Square
+knightSquares' sq = let l = 2
+                        l2 = -2
+                        s = 1
+                        s2 = -1
 
+                        jmps = (zip [l2, l2, l, l, s, s, s2, s2] [s, s2, s, s2, l, l2, l, l2])
+                    in mapMaybe (offset' sq) jmps
 
+knightSquares :: Square -> Array (Array Square)
+knightSquares sq = map pure (knightSquares' sq)
 
-knightSquares :: Square -> Array Square
-knightSquares sq = let l = 2
-                       l2 = -2
-                       s = 1
-                       s2 = -1
-
-                       jmps = (zip [l2, l2, l, l, s, s, s2, s2] [s, s2, s, s2, l, l2, l, l2])
-                   in mapMaybe (offset' sq) jmps
+kingSquares :: Square -> Array (Array Square)
+kingSquares sq = map pure (kingSquares' sq)
 
 
 bishopSquares :: Square -> Array (Array Square)
@@ -111,6 +154,18 @@ queenSquares :: Square -> Array (Array Square)
 queenSquares s = concat [rookSquares s, bishopSquares s]
 
 
+officerSquares :: OfficerType -> Square -> Array (Array Square)
+officerSquares Knight = knightSquares
+officerSquares Bishop = bishopSquares
+officerSquares Queen  = queenSquares
+officerSquares Rook   = rookSquares
+officerSquares King   = kingSquares
+
+pieceMoveSquares :: Piece -> Square -> Array (Array Square)
+pieceMoveSquares pc sq = case pieceType pc of
+  Pawn -> pawnMoveSquares (pieceColor pc) sq
+  Officer ot -> officerSquares ot sq
+
 --
 -- FEN stuff
 --
@@ -125,11 +180,15 @@ fen :: String
 fen = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"
 
 data Piece = Piece PieceType Color
-data PieceType = Pawn | King | Queen | Rook | Bishop | Knight 
+data PieceType = Pawn | Officer OfficerType
+data OfficerType = King | Queen | Rook | Bishop | Knight 
 data Color = White | Black
 
 derive instance colorEq :: Eq Color
 derive instance colorOrd :: Ord Color
+
+derive instance officerEq :: Eq OfficerType
+derive instance officerOrd :: Ord OfficerType
 
 derive instance pieceEq :: Eq Piece
 derive instance pieceOrd :: Ord Piece
@@ -141,12 +200,15 @@ instance showColor :: Show Color where
   show White = "White"
   show Black = "Black"
 
-instance showPieceType :: Show PieceType where
+instance showOfficerType :: Show OfficerType where
   show Bishop = "Bishop"
   show Knight = "Knight"
   show Rook = "Rook"
   show King = "King"
   show Queen = "Queen"
+
+instance showPieceType :: Show PieceType where
+  show (Officer ot) = appendStrings ["(", "Officer ", show ot, ")"]
   show Pawn = "Pawn"
 
 instance showPiece :: Show Piece where
@@ -165,15 +227,18 @@ decodeChar c = case decodePieceType (toUpper c) of
   Just pt -> Just (singleton (Just (Piece pt (color c))))
   Nothing -> Nothing
 
-  
+
+decodeOfficerType :: Char -> Maybe OfficerType
+decodeOfficerType 'K' = Just King
+decodeOfficerType 'Q' = Just Queen
+decodeOfficerType 'B' = Just Bishop
+decodeOfficerType 'N' = Just Knight
+decodeOfficerType 'R' = Just Rook
+decodeOfficerType _ = Nothing
+
 decodePieceType :: Char -> Maybe PieceType
-decodePieceType 'K' = Just King
-decodePieceType 'Q' = Just Queen
-decodePieceType 'B' = Just Bishop
-decodePieceType 'N' = Just Knight
-decodePieceType 'R' = Just Rook
 decodePieceType 'P' = Just Pawn
-decodePieceType _ = Nothing
+decodePieceType c = map Officer (decodeOfficerType c)
 
 color :: Char -> Color
 color c = if c == toUpper c then White else Black
@@ -213,7 +278,9 @@ squares = let range = [1,2,3,4,5,6,7,8]
                           Tuple n m)
 
 
-board :: FENBoardString -> Maybe (Map Square Piece)
+type Board = Map Square Piece
+
+board :: FENBoardString -> Maybe Board
 board s = do
   ps <- pieces s
   let
