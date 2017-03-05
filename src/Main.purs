@@ -5,7 +5,7 @@ import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (CONSOLE, log)
 --import Control.Applicative
 
-import Data.Array (index, length, replicate, singleton, concat, zip, mapMaybe, range, elem, takeWhile, catMaybes, take, concatMap, reverse, findIndex, union)
+import Data.Array (index, length, replicate, singleton, concat, zip, mapMaybe, range, elem, takeWhile, catMaybes, take, concatMap, reverse, findIndex, union, filter)
 import Data.String (Pattern(..), split, toCharArray, fromCharArray, joinWith)
 import Data.Tuple (Tuple(..), fst, snd, uncurry)
 import Data.Maybe (Maybe(..), isNothing, isJust, fromMaybe, maybe)
@@ -22,8 +22,63 @@ main = do
   log "Hello sailor!"
 
 --
+-- Moves
+--
+
+
+data MoveType = Captures | Moves
+data SourceIndicator = SquareHint Square | RankHint Int | FileHint Int
+
+
+type Move = forall e.
+            { hint :: Maybe SourceIndicator
+            , moveType :: MoveType
+            , destination :: Square
+            , promotion :: Maybe Square
+            , pieceType :: PieceType | e }
+
+type FullMove = { source :: Square
+                , moveType :: MoveType
+                , destination :: Square
+                , promotion :: Maybe Square
+                , pieceType :: PieceType }            
+
+
+-- Resolve 'standard' moves into fully qualified moves
+resolve :: Move -> Position -> Array FullMove
+resolve mv@{moveType, destination, promotion, pieceType} p =
+  candidates mv p <#> \source -> { moveType, destination, promotion, pieceType, source }
+
+
+candidates :: Move -> Position -> Array Square
+candidates mv p = let pc = Piece (mv.pieceType) (currentPlayer p)
+                      b = positionBoard p
+                  in filter (flip congruent mv.hint) (pieceSquares pc b)
+
+
+-- Checks if a square 'works' with a given hint
+congruent :: Square -> Maybe SourceIndicator -> Boolean
+congruent sq Nothing = true
+congruent sq (Just (SquareHint sq2)) = sq == sq2
+congruent sq (Just (RankHint r)) = rank sq == r
+congruent sq (Just (FileHint f)) = fileNr sq == f
+
+
+pieceSquares :: Piece -> Board -> Array Square
+pieceSquares pc b = mapMaybe (\x -> if snd x == pc
+                                    then Just (fst x)
+                                    else Nothing)
+                    (toUnfoldable b)
+
+
+
+--
 -- Position
 --
+currentPlayer :: Position -> Color
+currentPlayer _ = White -- TODO
+
+
 findIndexFlipped :: forall a. Array a -> (a -> Boolean) -> Maybe Int  
 findIndexFlipped a b = findIndex b a
   
@@ -63,11 +118,22 @@ positionBoard (Position b _) = b
 -- Designates a connected sequence of squares
 type SquareSequence = Array Square
 
-moveRange :: Piece -> Square -> Board -> Array SquareSequence
-moveRange pc sq b = pieceMoveSquares pc sq <#> \sqs -> do
+
+pieceRange :: MoveType -> Piece -> Square -> Position -> Array SquareSequence
+pieceRange Moves pc sq p = moveRange pc sq p
+pieceRange Captures pc sq p = map singleton (attackRange pc sq p)
+
+
+moveRange :: Piece -> Square -> Position -> Array SquareSequence
+moveRange pc sq p = moveRange' pc sq (positionBoard p)
+
+
+moveRange' :: Piece -> Square -> Board -> Array SquareSequence
+moveRange' pc sq b = pieceMoveSquares pc sq <#> \sqs -> do
   let opp = firstPieceIndex (opponent (pieceColor pc)) sqs b
       own = firstPieceIndex (pieceColor pc) sqs b
   take (fromMaybe 8 (min opp own)) sqs
+
 
 mapMaybeFlipped :: forall a b. Array a -> (a -> Maybe b) -> Array b
 mapMaybeFlipped a b = mapMaybe b a
