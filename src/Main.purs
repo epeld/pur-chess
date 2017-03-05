@@ -3,7 +3,6 @@ module Main where
 import Prelude 
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (CONSOLE, log)
---import Control.Applicative
 
 import Data.Array (index, length, replicate, singleton, concat, zip, mapMaybe, range, elem, takeWhile, catMaybes, take, concatMap, reverse, findIndex, union, filter)
 import Data.String (Pattern(..), split, toCharArray, fromCharArray, joinWith)
@@ -55,6 +54,12 @@ isLegalMove mv p = map isLegal (perform mv p) == Just true
 
 isLegal :: Position -> Boolean
 isLegal _ = true -- TODO
+
+
+opponentPieces :: Position -> Board
+opponentPieces p = let b = positionBoard p
+                       c = opponent (currentPlayer p)
+                   in filterMap (\pair -> pieceColor (snd pair) == c) b
 
 
 perform :: FullMove -> Position -> Maybe Position
@@ -111,6 +116,9 @@ currentPlayer _ = White -- TODO
 
 findIndexFlipped :: forall a. Array a -> (a -> Boolean) -> Maybe Int  
 findIndexFlipped a b = findIndex b a
+
+filterMap :: forall a b. Ord a => (Tuple a b -> Boolean) -> Map a b -> Map a b
+filterMap pred m = fromFoldable (filter pred (toUnfoldable m))
   
 firstPieceIndex :: Color -> Array Square -> Board -> Maybe Int
 firstPieceIndex c sqs b = findIndexFlipped sqs \sq -> do
