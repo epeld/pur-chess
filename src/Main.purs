@@ -44,6 +44,36 @@ type FullMove = { source :: Square
                 , pieceType :: PieceType }            
 
 
+resolveLegal :: Move -> Position -> Array FullMove
+resolveLegal mv p = filter (flip isLegalMove p) (resolve mv p)
+
+
+isLegalMove :: FullMove -> Position -> Boolean
+isLegalMove mv p = map isLegal (perform mv p) == Just true
+
+
+
+isLegal :: Position -> Boolean
+isLegal _ = true -- TODO
+
+
+perform :: FullMove -> Position -> Maybe Position
+perform mv p = let b = positionBoard p
+                   c = currentPlayer p
+               in Just p -- TODO
+
+
+move :: Square -> Square -> Board -> Board
+move sq sq2 b = fromMaybe b (move' sq sq2 b)
+
+
+-- Try to move the piece at 'sq' to 'sq2'
+-- If no piece is found, return Nothing
+move' :: Square -> Square -> Board -> Maybe Board
+move' sq sq2 b = lookup sq b <#> \pc ->
+  insert sq2 pc (delete sq b)
+
+
 -- Resolve 'standard' moves into fully qualified moves
 resolve :: Move -> Position -> Array FullMove
 resolve mv@{moveType, destination, promotion, pieceType} p =
