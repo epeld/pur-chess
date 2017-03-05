@@ -1,0 +1,24 @@
+{
+  "name": "chess",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "output"
+  ],
+  "dependencies": {
+    "purescript-prelude": "~2.5.0",
+    "purescript-console": "~2.0.0",
+    "purescript-lists": "~3.4.0",
+    "purescript-strings": "~2.1.0",
+    "purescript-tuples": "~3.2.0",
+    "purescript-sequences": "~1.0.2",
+    "purescript-distributive": "~2.0.0",
+    "purescript-functors": "~1.1.0",
+    "purescript-maps": "~2.1.2",
+    "purescript-enums": "~2.0.1"
+  },
+  "devDependencies": {
+    "purescript-psci-support": "~2.0.0"
+  }
+}
