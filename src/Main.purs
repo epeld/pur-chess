@@ -5,12 +5,12 @@ import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (CONSOLE, log)
 --import Control.Applicative
 
-import Data.Array (index, length, replicate, singleton, concat, zip, mapMaybe, range, elem, takeWhile, catMaybes, take, concatMap, reverse, findIndex)
+import Data.Array (index, length, replicate, singleton, concat, zip, mapMaybe, range, elem, takeWhile, catMaybes, take, concatMap, reverse, findIndex, union)
 import Data.String (Pattern(..), split, toCharArray, fromCharArray, joinWith)
 import Data.Tuple (Tuple(..), fst, snd, uncurry)
-import Data.Maybe (Maybe(..), isNothing, isJust, fromMaybe)
+import Data.Maybe (Maybe(..), isNothing, isJust, fromMaybe, maybe)
 import Data.Char (toUpper)
-import Data.Traversable (traverse)
+import Data.Traversable (traverse, for)
 import Data.Functor (mapFlipped, (<#>))
 import Data.Map
 import Data.Enum (succ)
@@ -51,11 +51,56 @@ opponent :: Color -> Color
 opponent White = Black
 opponent Black = White
 
-moveRange :: Piece -> Square -> Board -> Array (Array Square)
+data Position = Position Board Properties
+data Properties = Properties -- TODO
+
+passant :: Position -> Maybe Square
+passant _ = Nothing -- TODO
+
+positionBoard :: Position -> Board
+positionBoard (Position b _) = b
+
+-- Designates a connected sequence of squares
+type SquareSequence = Array Square
+
+moveRange :: Piece -> Square -> Board -> Array SquareSequence
 moveRange pc sq b = pieceMoveSquares pc sq <#> \sqs -> do
   let opp = firstPieceIndex (opponent (pieceColor pc)) sqs b
       own = firstPieceIndex (pieceColor pc) sqs b
   take (fromMaybe 8 (min opp own)) sqs
+
+mapMaybeFlipped :: forall a b. Array a -> (a -> Maybe b) -> Array b
+mapMaybeFlipped a b = mapMaybe b a
+
+
+attackRange :: Piece -> Square -> Position -> Array Square
+attackRange pc sq p =
+  let rng = attackRange' pc sq (positionBoard p)
+  in if pieceType pc == Pawn 
+     then maybe rng (union rng <<< singleton) (passantAttackRange pc sq p)
+     else rng
+
+
+passantAttackRange :: Piece -> Square -> Position -> Maybe Square
+passantAttackRange pc sq p = do
+  pass <- passant p
+  
+  let sqs = concat (pieceAttackSquares pc sq)
+  if elem pass sqs
+    then passant p
+    else Nothing
+
+
+-- note: disregards passant
+attackRange' :: Piece -> Square -> Board -> Array Square
+attackRange' pc sq b = mapMaybeFlipped (pieceAttackSquares pc sq) \sqs -> do
+  let opp = firstPieceIndex (opponent (pieceColor pc)) sqs b
+      own = firstPieceIndex (pieceColor pc) sqs b
+
+  ix <- opp
+  if opp < own
+    then index sqs ix
+    else Nothing
 
 --
 -- Squares and Offsets
@@ -86,27 +131,36 @@ offset' s = uncurry (offset s)
 
 
 -- Assumes an array of consecutive offsets 'walking away' from 's'
-walkOffsets :: Square -> Array (Tuple Int Int) -> Array Square
+walkOffsets :: Square -> Array (Tuple Int Int) -> SquareSequence
 walkOffsets s = mapMaybe (offset' s) -- implementation walks over all squares, yes
 
 
-forwardSquares :: Color -> Square -> Array Square
+forwardSquares :: Color -> Square -> SquareSequence
 forwardSquares c sq =
   let x = pawnDirection c
       x2 = x * 8
   in mapMaybe (offset' sq) (zip (range x x2) (replicate 8 0))
 
-pawnMoveSquares' :: Color -> Square -> Array Square
+
+pawnAttackSquares :: Color -> Square -> Array SquareSequence
+pawnAttackSquares c sq = map pure (pawnAttackSquares' c sq)
+
+pawnAttackSquares' :: Color -> Square -> Array Square
+pawnAttackSquares' c sq = mapMaybeFlipped [1, -1] \x -> do
+  offset' sq (Tuple x (pawnDirection c))
+
+
+pawnMoveSquares' :: Color -> Square -> SquareSequence
 pawnMoveSquares' c sq = let n = if initialPawnRank c == rank sq
                                 then 2
                                 else 1
                         in take n (forwardSquares c sq)
 
-pawnMoveSquares :: Color -> Square -> Array (Array Square)
+pawnMoveSquares :: Color -> Square -> Array SquareSequence
 pawnMoveSquares c sq = map pure (pawnMoveSquares' c sq)
 
 
-kingSquares' :: Square -> Array Square
+kingSquares' :: Square -> SquareSequence
 kingSquares' = concatMap (take 1) <<< queenSquares
 
 
@@ -120,14 +174,14 @@ knightSquares' sq = let l = 2
                         jmps = (zip [l2, l2, l, l, s, s, s2, s2] [s, s2, s, s2, l, l2, l, l2])
                     in mapMaybe (offset' sq) jmps
 
-knightSquares :: Square -> Array (Array Square)
+knightSquares :: Square -> Array SquareSequence
 knightSquares sq = map pure (knightSquares' sq)
 
-kingSquares :: Square -> Array (Array Square)
+kingSquares :: Square -> Array SquareSequence
 kingSquares sq = map pure (kingSquares' sq)
 
 
-bishopSquares :: Square -> Array (Array Square)
+bishopSquares :: Square -> Array SquareSequence
 bishopSquares s = let r = range 1 8
                       r2 = range (-8) (-1)
                       d1 = zip r r
@@ -137,7 +191,7 @@ bishopSquares s = let r = range 1 8
                   in map (walkOffsets s) [d1, d2, d3, d4]
 
 
-rookSquares :: Square -> Array (Array Square)
+rookSquares :: Square -> Array SquareSequence
 rookSquares s = let r = range 1 8
                     r2 = range (-8) (-1)
                     z = replicate 8 0
@@ -150,21 +204,28 @@ rookSquares s = let r = range 1 8
                     in map (walkOffsets s) [h, h2, v, v2]
 
 
-queenSquares :: Square -> Array (Array Square)
+queenSquares :: Square -> Array SquareSequence
 queenSquares s = concat [rookSquares s, bishopSquares s]
 
 
-officerSquares :: OfficerType -> Square -> Array (Array Square)
+officerSquares :: OfficerType -> Square -> Array SquareSequence
 officerSquares Knight = knightSquares
 officerSquares Bishop = bishopSquares
 officerSquares Queen  = queenSquares
 officerSquares Rook   = rookSquares
 officerSquares King   = kingSquares
 
-pieceMoveSquares :: Piece -> Square -> Array (Array Square)
+pieceMoveSquares :: Piece -> Square -> Array SquareSequence
 pieceMoveSquares pc sq = case pieceType pc of
   Pawn -> pawnMoveSquares (pieceColor pc) sq
   Officer ot -> officerSquares ot sq
+
+
+pieceAttackSquares :: Piece -> Square -> Array SquareSequence
+pieceAttackSquares pc sq = case pieceType pc of
+  Pawn -> pawnAttackSquares (pieceColor pc) sq
+  Officer ot -> officerSquares ot sq
+
 
 --
 -- FEN stuff
