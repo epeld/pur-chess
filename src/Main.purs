@@ -516,6 +516,27 @@ propString :: FENString -> Maybe FENPropertyString
 propString = map snd <<< fenSplit
 
 
+parseTurn :: String -> Maybe Color -- TODO
+parseTurn "b" = Just Black
+parseTurn "w" = Just White
+parseTurn _ = Nothing
+
+
+parseRights :: String -> Int -- TODO
+parseRights "KQkq" = 0
+parseRights "KQk" = 0
+parseRights "KQ" = 0
+parseRights "K" = 0
+parseRights "-" = 0
+parseRights "Qkq" = 0
+parseRights "Qk" = 0
+parseRights "Q" = 0
+parseRights "kq" = 0
+parseRights "k" = 0
+parseRights "q" = 0
+parseRights _ = 0 -- Nothing!
+
+
 fenSplit :: FENString -> Maybe (Tuple FENBoardString FENPropertyString)
 fenSplit (FEN s) = let parts = split (Pattern " ") s
                        
