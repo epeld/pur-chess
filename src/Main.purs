@@ -4,7 +4,7 @@ import Prelude
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (CONSOLE, log)
 
-import Data.Array (index, length, replicate, singleton, concat, zip, mapMaybe, range, elem, takeWhile, catMaybes, take, concatMap, reverse, findIndex, union, filter)
+import Data.Array (index, length, replicate, singleton, concat, zip, mapMaybe, range, elem, takeWhile, catMaybes, take, concatMap, reverse, findIndex, union, filter, intersect, null)
 import Data.String (Pattern(..), split, toCharArray, fromCharArray, joinWith)
 import Data.Tuple (Tuple(..), fst, snd, uncurry)
 import Data.Maybe (Maybe(..), isNothing, isJust, fromMaybe, maybe)
@@ -13,6 +13,9 @@ import Data.Traversable (traverse, for)
 import Data.Functor (mapFlipped, (<#>))
 import Data.Map
 import Data.Enum (succ)
+import Data.Foldable
+import Data.Unfoldable
+import Data.List as List
 
 import Control.Apply
 
@@ -51,15 +54,36 @@ isLegalMove :: FullMove -> Position -> Boolean
 isLegalMove mv p = map isLegal (perform mv p) == Just true
 
 
+-- It's got to be called something..
+huff :: forall d c f b a u.                                                      
+        ( Ord c, Foldable f, Unfoldable u) =>
+        (u (Tuple a b) -> f (Tuple c d)) -> Map a b -> Map c d
+huff f = fromFoldable <<< f <<< toUnfoldable
 
+
+filterMap :: forall a b. Ord a => (Tuple a b -> Boolean) -> Map a b -> Map a b
+filterMap pred m = huff (filter pred) m
+
+arrayKeys :: forall u a b. (Unfoldable u) => Map a b -> u a
+arrayKeys = List.toUnfoldable <<< keys
+
+-- A position is legal if the king cannot be attacked.
 isLegal :: Position -> Boolean
-isLegal _ = true -- TODO
+isLegal p = let king = Piece (Officer King) (opponentPlayer p)
+                ksq = arrayKeys (filterPieces p (\pc -> pc == king))
+                
+                pcs = toUnfoldable (filterPieces p \pc -> pieceColor pc == (currentPlayer p))
+                asqs = concatMap (attacks p) pcs
+            in null (intersect ksq asqs)
 
 
-opponentPieces :: Position -> Board
-opponentPieces p = let b = positionBoard p
-                       c = opponent (currentPlayer p)
-                   in filterMap (\pair -> pieceColor (snd pair) == c) b
+-- Helper, to simplify isLegal
+attacks :: Position -> Tuple (Tuple Int Int) Piece -> Array (Tuple Int Int)
+attacks p (Tuple sq pc) = attackRange pc sq p
+
+
+filterPieces :: Position -> (Piece -> Boolean) -> Board
+filterPieces p pred = filterMap (pred <<< snd) (positionBoard p)
 
 
 perform :: FullMove -> Position -> Maybe Position
@@ -114,11 +138,12 @@ currentPlayer :: Position -> Color
 currentPlayer _ = White -- TODO
 
 
+opponentPlayer :: Position -> Color
+opponentPlayer = opponent <<< currentPlayer
+
 findIndexFlipped :: forall a. Array a -> (a -> Boolean) -> Maybe Int  
 findIndexFlipped a b = findIndex b a
 
-filterMap :: forall a b. Ord a => (Tuple a b -> Boolean) -> Map a b -> Map a b
-filterMap pred m = fromFoldable (filter pred (toUnfoldable m))
   
 firstPieceIndex :: Color -> Array Square -> Board -> Maybe Int
 firstPieceIndex c sqs b = findIndexFlipped sqs \sq -> do
