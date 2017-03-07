@@ -16,7 +16,8 @@
     "purescript-distributive": "~2.0.0",
     "purescript-functors": "~1.1.0",
     "purescript-maps": "~2.1.2",
-    "purescript-enums": "~2.0.1"
+    "purescript-enums": "~2.0.1",
+    "purescript-integers": "~2.1.1"
   },
   "devDependencies": {
     "purescript-psci-support": "~2.0.0"

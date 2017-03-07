@@ -4,7 +4,7 @@ import Prelude
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (CONSOLE, log)
 
-import Data.Array (index, length, replicate, singleton, concat, zip, mapMaybe, range, elem, takeWhile, catMaybes, take, concatMap, reverse, findIndex, union, filter, intersect, null)
+import Data.Array (index, length, replicate, singleton, concat, zip, mapMaybe, range, elem, takeWhile, catMaybes, take, concatMap, reverse, findIndex, union, filter, intersect, null, elemIndex)
 import Data.String (Pattern(..), split, toCharArray, fromCharArray, joinWith)
 import Data.Tuple (Tuple(..), fst, snd, uncurry)
 import Data.Maybe (Maybe(..), isNothing, isJust, fromMaybe, maybe)
@@ -14,6 +14,7 @@ import Data.Functor (mapFlipped, (<#>))
 import Data.Map
 import Data.Enum (succ)
 import Data.Foldable
+import Data.Int
 import Data.Unfoldable
 import Data.List as List
 
@@ -170,7 +171,24 @@ opponent White = Black
 opponent Black = White
 
 data Position = Position Board Properties
-data Properties = Properties -- TODO
+type Properties = { turn :: Color
+                  , rights :: Array CastlingRight
+                  , passant :: Maybe Square
+                  , halfMove :: Int
+                  , fullMove :: Int }
+
+
+parsePosition :: FENString -> Maybe Position
+parsePosition s =
+  let
+    b :: Maybe Board
+    b = bind (boardString s) board
+
+    p :: Maybe Properties
+    p = bind (propString s) props
+  in Position <$> b <*> p
+
+-- fen = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"
 
 passant :: Position -> Maybe Square
 passant _ = Nothing -- TODO
@@ -366,6 +384,25 @@ newtype FENPropertyString = FENProps String
 newtype FENRowString = FENRow String
 
 
+props :: FENPropertyString -> Maybe Properties
+props (FENProps s) = do
+  let parts = split (Pattern " ") s
+
+  st <- index parts 0
+  sr <- index parts 1
+  sp <- index parts 2
+  shf <- index parts 3 
+  sfl <- index parts 3 
+  
+  t <- parseTurn st
+  r <- parseRights sr
+  p <- parsePassant sp
+  hf <- parseInt shf
+  fl <- parseInt sfl
+
+  Just { turn : t, rights : r, passant : p, halfMove : hf, fullMove : fl }
+
+
 fen :: String
 fen = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"
 
@@ -515,27 +552,43 @@ boardString = map fst <<< fenSplit
 propString :: FENString -> Maybe FENPropertyString
 propString = map snd <<< fenSplit
 
+parseSquare :: String -> Maybe Square
+parseSquare = parseSquare' <<< toCharArray
+
+parseSquare' :: Array Char -> Maybe Square
+parseSquare' [f,r] =
+  let files = toCharArray "abcdefgh"
+      ranks = toCharArray "12345678"
+  in Tuple <$> elemIndex f files <*> elemIndex r ranks
+
+parseSquare' _ = Nothing     
+
+
+parseInt :: String -> Maybe Int
+parseInt = fromString
 
 parseTurn :: String -> Maybe Color -- TODO
 parseTurn "b" = Just Black
 parseTurn "w" = Just White
 parseTurn _ = Nothing
 
+data CastlingRight = Castle Side Color
+data Side = Queenside | Kingside
 
-parseRights :: String -> Int -- TODO
-parseRights "KQkq" = 0
-parseRights "KQk" = 0
-parseRights "KQ" = 0
-parseRights "K" = 0
-parseRights "-" = 0
-parseRights "Qkq" = 0
-parseRights "Qk" = 0
-parseRights "Q" = 0
-parseRights "kq" = 0
-parseRights "k" = 0
-parseRights "q" = 0
-parseRights _ = 0 -- Nothing!
+parseRights :: String -> Maybe (Array CastlingRight)
+parseRights "-" = Just [] -- Valid but empty
+parseRights s = traverse parseRight (toCharArray s)
 
+parseRight :: Char -> Maybe CastlingRight
+parseRight 'K' = Just (Castle Kingside White)
+parseRight 'Q' = Just (Castle Kingside White)
+parseRight 'k' = Just (Castle Kingside Black)
+parseRight 'q' = Just (Castle Kingside Black)
+parseRight _ = Nothing
+
+parsePassant :: String -> Maybe (Maybe Square)
+parsePassant "-" = Just Nothing
+parsePassant sq = map Just (parseSquare sq)
 
 fenSplit :: FENString -> Maybe (Tuple FENBoardString FENPropertyString)
 fenSplit (FEN s) = let parts = split (Pattern " ") s
