@@ -5,6 +5,7 @@ import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (CONSOLE, log)
 
 import Data.Array (index, length, replicate, singleton, concat, zip, mapMaybe, range, elem, takeWhile, catMaybes, take, concatMap, reverse, findIndex, union, filter, intersect, null, elemIndex)
+import Data.Array as Array
 import Data.String (Pattern(..), split, toCharArray, fromCharArray, joinWith)
 import Data.Tuple (Tuple(..), fst, snd, uncurry)
 import Data.Maybe (Maybe(..), isNothing, isJust, fromMaybe, maybe)
@@ -120,8 +121,22 @@ newPassant :: FullMove -> Position -> Maybe Square
 newPassant mv p = Nothing -- TODO
 
 
+castlingSquares :: Map String (Array CastlingRight)
+castlingSquares = fromFoldable [ Tuple "e1" [Castle Kingside White, Castle Queenside White]
+                               , Tuple "a1" [Castle Queenside White]
+                               , Tuple "h1" [Castle Kingside White]
+                                 
+                               , Tuple "e8" [Castle Kingside Black, Castle Queenside Black]
+                               , Tuple "a8" [Castle Queenside Black]
+                               , Tuple "h8" [Castle Kingside Black]]
+
 newRights :: FullMove -> Position -> Array CastlingRight
-newRights mv p = [] -- TODO
+newRights mv p = let r = (positionProps p).rights
+                     s = squareString mv.source
+                     x = case s of
+                       Just s' -> lookup s' castlingSquares
+                       Nothing -> Nothing
+                 in maybe r (Array.difference r) x
 
 
 move :: Square -> Square -> Board -> Board
@@ -445,6 +460,17 @@ data PieceType = Pawn | Officer OfficerType
 data OfficerType = King | Queen | Rook | Bishop | Knight 
 data Color = White | Black
 
+data CastlingRight = Castle Side Color
+data Side = Queenside | Kingside
+
+
+derive instance castlingRightEq :: Eq CastlingRight
+derive instance castlingRightOrd :: Ord CastlingRight
+
+derive instance sideEq :: Eq Side
+derive instance sideOrd :: Ord Side
+
+
 derive instance colorEq :: Eq Color
 derive instance colorOrd :: Ord Color
 
@@ -605,9 +631,6 @@ parseTurn :: String -> Maybe Color
 parseTurn "b" = Just Black
 parseTurn "w" = Just White
 parseTurn _ = Nothing
-
-data CastlingRight = Castle Side Color
-data Side = Queenside | Kingside
 
 parseRights :: String -> Maybe (Array CastlingRight)
 parseRights "-" = Just [] -- Valid but empty
