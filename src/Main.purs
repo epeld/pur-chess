@@ -52,7 +52,7 @@ resolveLegal mv p = filter (flip isLegalMove p) (resolve mv p)
 
 
 isLegalMove :: FullMove -> Position -> Boolean
-isLegalMove mv p = map isLegal (perform mv p) == Just true
+isLegalMove mv p = isLegal (perform mv p) 
 
 
 -- It's got to be called something..
@@ -87,10 +87,41 @@ filterPieces :: Position -> (Piece -> Boolean) -> Board
 filterPieces p pred = filterMap (pred <<< snd) (positionBoard p)
 
 
-perform :: FullMove -> Position -> Maybe Position
+-- Missing right now:
+-- * Promotions
+-- * Property updates
+perform :: FullMove -> Position -> Position
 perform mv p = let b = positionBoard p
-                   c = currentPlayer p
-               in Just p -- TODO
+                   b' = move mv.source mv.destination b
+               in Position b' (newprops mv p)
+
+
+newprops :: FullMove -> Position -> Properties
+newprops mv p = let props = positionProps p
+                    b = positionBoard p
+
+                    hf = if pieceTypeAt mv.source b == Just Pawn
+                         then 0
+                         else props.halfMove + 1
+                              
+                    fl = props.fullMove + 1
+
+                    passant = newPassant mv p
+                    rights = newRights mv p
+                    turn = opponentPlayer p
+                in props { turn = turn
+                         , rights = rights
+                         , passant = passant
+                         , halfMove = hf
+                         , fullMove = fl }
+
+
+newPassant :: FullMove -> Position -> Maybe Square
+newPassant mv p = Nothing -- TODO
+
+
+newRights :: FullMove -> Position -> Array CastlingRight
+newRights mv p = [] -- TODO
 
 
 move :: Square -> Square -> Board -> Board
@@ -136,8 +167,11 @@ pieceSquares pc b = mapMaybe (\x -> if snd x == pc
 -- Position
 --
 currentPlayer :: Position -> Color
-currentPlayer _ = White -- TODO
+currentPlayer p = (positionProps p).turn
 
+
+positionProps :: Position -> Properties
+positionProps (Position _ p) = p
 
 opponentPlayer :: Position -> Color
 opponentPlayer = opponent <<< currentPlayer
@@ -191,7 +225,7 @@ parsePosition s =
 -- fen = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"
 
 passant :: Position -> Maybe Square
-passant _ = Nothing -- TODO
+passant p = (positionProps p).passant
 
 positionBoard :: Position -> Board
 positionBoard (Position b _) = b
@@ -567,7 +601,7 @@ parseSquare' _ = Nothing
 parseInt :: String -> Maybe Int
 parseInt = fromString
 
-parseTurn :: String -> Maybe Color -- TODO
+parseTurn :: String -> Maybe Color
 parseTurn "b" = Just Black
 parseTurn "w" = Just White
 parseTurn _ = Nothing
