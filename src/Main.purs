@@ -90,7 +90,7 @@ filterPieces p pred = filterMap (pred <<< snd) (positionBoard p)
 
 -- Missing right now:
 -- * Promotions
--- * Property updates
+-- * Passant Captures
 perform :: FullMove -> Position -> Position
 perform mv p = let b = positionBoard p
                    b' = move mv.source mv.destination b
@@ -118,7 +118,12 @@ newprops mv p = let props = positionProps p
 
 
 newPassant :: FullMove -> Position -> Maybe Square
-newPassant mv p = Nothing -- TODO
+newPassant mv p =
+  let up = pawnDirection (currentPlayer p)
+  in if pieceTypeAt mv.source (positionBoard p) == Just Pawn &&
+        rank mv.destination - rank mv.source == 2 * up
+     then offset mv.source 0 up
+     else Nothing
 
 
 castlingSquares :: Map String (Array CastlingRight)
