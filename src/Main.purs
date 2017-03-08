@@ -38,13 +38,15 @@ type Move = forall e.
             { hint :: Maybe SourceIndicator
             , moveType :: MoveType
             , destination :: Square
-            , promotion :: Maybe Square
+            , passant :: Maybe Square
+            , promotion :: Maybe OfficerType
             , pieceType :: PieceType | e }
 
 type FullMove = { source :: Square
                 , moveType :: MoveType
                 , destination :: Square
-                , promotion :: Maybe Square
+                , passant :: Maybe Square
+                , promotion :: Maybe OfficerType
                 , pieceType :: PieceType }            
 
 
@@ -53,7 +55,7 @@ resolveLegal mv p = filter (flip isLegalMove p) (resolve mv p)
 
 
 isLegalMove :: FullMove -> Position -> Boolean
-isLegalMove mv p = isLegal (perform mv p) 
+isLegalMove mv p = map isLegal (perform mv p) == Just true
 
 
 -- It's got to be called something..
@@ -89,12 +91,34 @@ filterPieces p pred = filterMap (pred <<< snd) (positionBoard p)
 
 
 -- Missing right now:
--- * Promotions
 -- * Passant Captures
-perform :: FullMove -> Position -> Position
-perform mv p = let b = positionBoard p
-                   b' = move mv.source mv.destination b
-               in Position b' (newprops mv p)
+perform :: FullMove -> Position -> Maybe Position
+perform mv p = Position <$> newboard mv p <*> pure (newprops mv p)
+
+
+newboard :: FullMove -> Position -> Maybe Board
+newboard mv p = let b' = move' mv.source mv.destination (positionBoard p)
+                in if isPawnMove mv p && isLastRankMove mv p
+                   then insert mv.destination <$> promotionPiece mv p <*> b'
+                   else b'
+
+
+promotionPiece :: FullMove -> Position -> Maybe Piece
+promotionPiece mv p = Piece <$> map Officer mv.promotion <*> pure (currentPlayer p)
+
+isLastRankMove :: FullMove -> Position -> Boolean
+isLastRankMove mv p = rank mv.destination == lastRank (currentPlayer p)
+
+
+lastRank :: Color -> Int
+lastRank White = 8
+lastRank Black = 1
+
+
+isPawnMove :: FullMove -> Position -> Boolean
+isPawnMove mv p =
+  let b = positionBoard p
+  in mv.pieceType == Pawn && pieceTypeAt mv.source b == Just Pawn
 
 
 newprops :: FullMove -> Position -> Properties
@@ -157,8 +181,13 @@ move' sq sq2 b = lookup sq b <#> \pc ->
 
 -- Resolve 'standard' moves into fully qualified moves
 resolve :: Move -> Position -> Array FullMove
-resolve mv@{moveType, destination, promotion, pieceType} p =
-  candidates mv p <#> \source -> { moveType, destination, promotion, pieceType, source }
+resolve mv@{moveType, destination, promotion, pieceType, passant} p =
+  candidates mv p <#> \source -> { moveType
+                                 , destination
+                                 , promotion
+                                 , pieceType
+                                 , source
+                                 , passant }
 
 
 candidates :: Move -> Position -> Array Square
