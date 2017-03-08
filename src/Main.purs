@@ -90,21 +90,34 @@ filterPieces :: Position -> (Piece -> Boolean) -> Board
 filterPieces p pred = filterMap (pred <<< snd) (positionBoard p)
 
 
--- Missing right now:
--- * Passant Captures
 perform :: FullMove -> Position -> Maybe Position
 perform mv p = Position <$> newboard mv p <*> pure (newprops mv p)
 
 
 newboard :: FullMove -> Position -> Maybe Board
-newboard mv p = let b' = move' mv.source mv.destination (positionBoard p)
-                in if isPawnMove mv p && isLastRankMove mv p
-                   then insert mv.destination <$> promotionPiece mv p <*> b'
-                   else b'
+newboard mv p = if isPawnMove mv p
+                then newBoardAfterPawnMove mv p
+                else move' mv.source mv.destination (positionBoard p)
+
+
+newBoardAfterPawnMove :: FullMove -> Position -> Maybe Board
+newBoardAfterPawnMove mv p =
+  let b' = move' mv.source mv.destination (positionBoard p)
+      down = -pawnDirection (currentPlayer p)
+  in if isLastRankMove mv p
+     then insert mv.destination <$> promotionPiece mv p <*> b'
+     else if mv.moveType == Captures && Just mv.destination == positionPassant p
+          then delete <$> offset mv.destination 0 down <*> b'
+          else b'
+
+
+positionPassant :: Position -> Maybe Square
+positionPassant p = (positionProps p).passant
 
 
 promotionPiece :: FullMove -> Position -> Maybe Piece
 promotionPiece mv p = Piece <$> map Officer mv.promotion <*> pure (currentPlayer p)
+
 
 isLastRankMove :: FullMove -> Position -> Boolean
 isLastRankMove mv p = rank mv.destination == lastRank (currentPlayer p)
@@ -497,6 +510,8 @@ data Color = White | Black
 data CastlingRight = Castle Side Color
 data Side = Queenside | Kingside
 
+
+derive instance moveTypeEq :: Eq MoveType
 
 derive instance castlingRightEq :: Eq CastlingRight
 derive instance castlingRightOrd :: Ord CastlingRight
