@@ -582,16 +582,12 @@ color c = if c == toUpper c then White else Black
 
 type Square = Tuple Int Int
 
--- Cartesian coordinates (imo):
--- Bottom left is (0,0). The rest of squares go along positive x and y axes
-squareToCartesian :: Square -> Square
-squareToCartesian sq = Tuple (8 - fst sq) (8 - snd sq)
 
 rank :: Square -> Int
-rank = (add 1) <<< snd <<< squareToCartesian
+rank = (add 1) <<< snd
 
 fileNr :: Square -> Int
-fileNr = (add 1) <<< fst <<< squareToCartesian
+fileNr = (add 1) <<< fst
 
 fileChar :: Square -> Maybe Char
 fileChar sq = index (toCharArray "abcdefgh") (add (fileNr sq) (-1))
