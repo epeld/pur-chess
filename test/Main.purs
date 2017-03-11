@@ -110,13 +110,6 @@ assertPiece b s msg pred = with parseSquare s \sq ->
 isValidMove _ _ = Assert.assert "resulting position is legal" $ true
 
 
-withBoard :: forall a. String -> (Board -> Test a) -> TestSuite a
-withBoard s f = test (unwords ["Board", s])
-                (case board (FENBoard s) of
-                     Nothing -> Assert.assert (unwords ["Parses", s]) false
-                     Just b -> f b)
-
-
 -- Helper for testing things that need to be parsed out first, e.g
 -- Parsing a position AND THEN running tests on it
 with p s f = case p s of
@@ -128,11 +121,6 @@ with' p s f = with p s (Assert.assert s <<< f)
 
 
 testWith p s f = test s $ with p s f
-
-
-withSquare s f = case parseSquare s of
-  Nothing -> Assert.assert (unwords ["Parses", s]) false
-  Just sq -> f sq
 
 
 unwords :: Array String -> String
