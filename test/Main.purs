@@ -112,7 +112,9 @@ testIt = runTest do
 
   suite "Move Logic" do
     test (unwords ["In position", fen]) do
-      with parsePosition fen \p ->
+      with parsePosition fen \p -> do
+        Assert.assert "isLegal" $ isLegal p
+        
         with' (parseMove p) "d7d6" (isLegalMove p)
 
 
