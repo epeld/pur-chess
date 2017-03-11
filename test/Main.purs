@@ -5,6 +5,7 @@ import Data.Maybe
 import Data.Functor
 import Data.Traversable
 import Data.String
+import Data.Map
 import Control.Monad
 import Control.Monad.Aff
 import Control.Monad.Eff (Eff)
@@ -13,6 +14,7 @@ import Control.Monad.Eff.Console (CONSOLE, log)
 import Test.Unit --(suite, test, timeout)
 import Test.Unit.Main (runTest)
 import Test.Unit.Assert as Assert
+import Test.Unit.Console
 
 
 import Main
@@ -34,29 +36,47 @@ testSquareEncode sqs = test "decoding, then encoding square is idempotent" do
   traverse_ assertIdempotSquare sqs
 
 
+old = let 
+           s = joinWith " " (map (show <<< squareString) squares)
+       in consoleLog s
+
+
+main = testIt
+
 --main :: forall a.
 --        (Partial) => Eff ( console :: CONSOLE, testOutput :: TESTOUTPUT, avar :: AVAR | a) Unit
-main = runTest do
+testIt = runTest do
   suite "Tests" do
     test "Foo" do
       Assert.assert "Testing works" $ true
   
   suite "Basics" do
     testSquareEncode ["e4", "c3", "b2", "f4", "a8", "h1"]
+    
 
   suite "Parsing" do
     withBoard "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR" \b -> do
       assertPieceType b "e4" Pawn
+      assertPieceColor b "e4" White
       assertPieceType b "g1" (Officer Knight)
       assertPieceType b "a1" (Officer Rook)
+      assertPieceType b "c8" (Officer Bishop)
+      assertPieceType b "c7" Pawn
+      assertPieceColor b "c7" Black
+      assertPieceColor b "c2" White
 
   suite "Move Logic" do
     withPosition "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1" \p -> do
-      isValidMove p "e4" -- TODO
+      isValidMove p "e4"
       
+assertPieceType b s pt = let msg = (unwords [show pt, "at", s])
+                         in assertPiece b s msg \pc -> pieceType pc == pt
 
-assertPieceType b s pt = withSquare s \sq ->
-  Assert.assert (unwords [show pt, "at", s]) $ pieceTypeAt sq b == Just pt
+assertPieceColor b s c = let msg = (unwords [show c, "piece at", s])
+                         in assertPiece b s msg \pc -> pieceColor pc == c
+                                                        
+assertPiece b s msg pred = withSquare s \sq ->
+  Assert.assert msg $ maybe false pred (pieceAt sq b)
 
 
 isValidMove _ _ = Assert.assert "resulting position is legal" $ true
