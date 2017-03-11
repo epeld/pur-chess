@@ -42,20 +42,34 @@ type Move = forall e.
             , promotion :: Maybe OfficerType
             , pieceType :: PieceType | e }
 
+
 type FullMove = { source :: Square
                 , moveType :: MoveType
                 , destination :: Square
-                , passant :: Maybe Square
                 , promotion :: Maybe OfficerType
                 , pieceType :: PieceType }            
 
 
-resolveLegal :: Move -> Position -> Array FullMove
-resolveLegal mv p = filter (flip isLegalMove p) (resolve mv p)
+-- Short-hand move creation (without promo)
+infer :: Position -> Square -> Square -> Maybe FullMove
+infer p src dest = let mt = if pieceAt dest b == Nothing
+                            then Moves
+                            else Captures
+                       b = positionBoard p
+                       pt = pieceTypeAt src b
+                   in pt <#> \t -> { source : src
+                                   , destination : dest
+                                   , promotion : Nothing
+                                   , pieceType : t
+                                   , moveType : mt }
 
 
-isLegalMove :: FullMove -> Position -> Boolean
-isLegalMove mv p = map isLegal (perform mv p) == Just true
+resolveLegal :: Position -> Move  -> Array FullMove
+resolveLegal p mv = filter (isLegalMove p) (resolve mv p)
+
+
+isLegalMove :: Position -> FullMove -> Boolean
+isLegalMove p mv = map isLegal (perform mv p) == Just true
 
 
 -- It's got to be called something..
@@ -194,13 +208,12 @@ move' sq sq2 b = lookup sq b <#> \pc ->
 
 -- Resolve 'standard' moves into fully qualified moves
 resolve :: Move -> Position -> Array FullMove
-resolve mv@{moveType, destination, promotion, pieceType, passant} p =
+resolve mv@{moveType, destination, promotion, pieceType} p =
   candidates mv p <#> \source -> { moveType
                                  , destination
                                  , promotion
                                  , pieceType
-                                 , source
-                                 , passant }
+                                 , source }
 
 
 candidates :: Move -> Position -> Array Square
@@ -674,6 +687,19 @@ parseSquare' [f,r] =
 
 parseSquare' _ = Nothing     
 
+flu :: (Array Char -> Array Char) -> String -> String
+flu f = fromCharArray <<< f <<< toCharArray 
+
+parseSrcDst :: String -> Maybe (Tuple Square Square)
+parseSrcDst s = let fs = parseSquare (flu (take 2) s)
+                    sn = parseSquare (flu (drop 2 <<< take 2) s)
+                in Tuple <$> fs <*> sn
+
+
+parseMove :: Position -> String -> Maybe FullMove
+parseMove p s = do
+  Tuple src dst <- parseSrcDst s
+  infer p src dst
 
 parseInt :: String -> Maybe Int
 parseInt = fromString
