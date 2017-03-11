@@ -4,7 +4,7 @@ import Prelude
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (CONSOLE, log)
 
-import Data.Array (index, length, replicate, singleton, concat, zip, mapMaybe, range, elem, takeWhile, catMaybes, take, concatMap, reverse, findIndex, union, filter, intersect, null, elemIndex)
+import Data.Array (index, length, replicate, singleton, concat, zip, mapMaybe, range, elem, takeWhile, catMaybes, take, concatMap, reverse, findIndex, union, filter, intersect, null, elemIndex, drop)
 import Data.Array as Array
 import Data.String (Pattern(..), split, toCharArray, fromCharArray, joinWith)
 import Data.Tuple (Tuple(..), fst, snd, uncurry)
@@ -705,7 +705,9 @@ fenSplit s = let parts = split (Pattern " ") s
                  b = index parts 0
                        
                  p :: Maybe String
-                 p = index parts 1
+                 p = case length parts of
+                   6 -> Just (joinWith " " (drop 1 parts))
+                   _ -> Nothing
                        
              in map wrap (lift2 Tuple p b)
 

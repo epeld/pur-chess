@@ -100,18 +100,20 @@ testIt = runTest do
     test "FEN Properties" do
       with' props "b KQkq e3 0 1" \p -> true
 
-    test "FEN Splitting" do
-      let fen = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"
+    let fen = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"
+        
+    test "FEN Properties String" do
           
       with' propString fen \s ->
         s == "b KQkq e3 0 1"
 
+    test "FEN Board String" do
       with' boardString fen \s ->
         s == "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR"
 
   suite "Move Logic" do
     test "??" do
-      with parsePosition "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1" \p -> do
+      with parsePosition fen \p -> do
         isValidMove p "e4"
       
 assertPieceType b s pt = let msg = (unwords [show pt, "at", s])
