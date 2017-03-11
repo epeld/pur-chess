@@ -8,7 +8,7 @@ import Data.Array (index, length, replicate, singleton, concat, zip, mapMaybe, r
 import Data.Array as Array
 import Data.String (Pattern(..), split, toCharArray, fromCharArray, joinWith)
 import Data.Tuple (Tuple(..), fst, snd, uncurry)
-import Data.Maybe (Maybe(..), isNothing, isJust, fromMaybe, maybe)
+import Data.Maybe (Maybe(..), isNothing, isJust, fromMaybe, maybe, fromJust)
 import Data.Char (toUpper)
 import Data.Traversable (traverse, for)
 import Data.Functor (mapFlipped, (<#>))
@@ -705,3 +705,6 @@ fenSplit (FEN s) = let parts = split (Pattern " ") s
 
 wrap :: Tuple String String -> Tuple FENBoardString FENPropertyString
 wrap (Tuple p b) = Tuple (FENBoard b) (FENProps p)
+
+square' :: (Partial) => String -> Square
+square' s = fromJust (parseSquare s)
