@@ -37,6 +37,11 @@ main = runTest do
   suite "Basics" do
     testSquareEncode ["e4", "c3", "b2", "f4", "a8", "h1"]
 
+  suite "Parsing" do
+    withBoard "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1" \b -> do
+      Assert.assert "pawn at e4" $ pieceTypeAt (square' "e4") b == Just Pawn
+      Assert.assert "rook at a1" $ pieceTypeAt (square' "a1") b == Just Rook
+
   suite "Move Logic" do
     withPosition "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1" \p -> do
       isValidMove p "e4" -- TODO
@@ -49,6 +54,11 @@ withPosition s f = test (unwords ["Position", s])
                    (case parsePosition (FEN s) of
                      Nothing -> Assert.assert (unwords ["Parses", s]) false
                      Just pos -> f pos)
+
+withBoard s f = test (unwords ["Board", s])
+                (case parse (FENBoardString s) of
+                     Nothing -> Assert.assert (unwords ["Parses", s]) false
+                     Just b -> f b)
 
 
 unwords = joinWith " "
