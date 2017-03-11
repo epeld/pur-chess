@@ -474,14 +474,14 @@ pieceAttackSquares pc sq = case pieceType pc of
 -- FEN stuff
 --
 
-newtype FENString = FEN String
-newtype FENBoardString = FENBoard String
-newtype FENPropertyString = FENProps String
-newtype FENRowString = FENRow String
+type FENString = String
+type FENBoardString = String
+type FENPropertyString = String
+type FENRowString = String
 
 
 props :: FENPropertyString -> Maybe Properties
-props (FENProps s) = do
+props s = do
   let parts = split (Pattern " ") s
 
   st <- index parts 0
@@ -639,7 +639,7 @@ pieces s = do
 
 
 unrle :: FENRowString -> Maybe (Array (Maybe Piece))
-unrle (FENRow r) = do
+unrle r = do
   let
     parts :: Maybe (Array (Array (Maybe Piece)))
     parts = traverse decodeChar (toCharArray r)
@@ -650,10 +650,10 @@ unrle (FENRow r) = do
 
 
 rowStrings :: FENBoardString -> Maybe (Array FENRowString)
-rowStrings (FENBoard s) = let parts = split (Pattern "/") s
-                          in case length parts of
-                            8 -> Just (map FENRow parts)
-                            _ -> Nothing
+rowStrings s = let parts = split (Pattern "/") s
+               in case length parts of
+                 8 -> Just parts
+                 _ -> Nothing
 
 
 boardString :: FENString -> Maybe FENBoardString
@@ -699,15 +699,15 @@ parsePassant "-" = Just Nothing
 parsePassant sq = map Just (parseSquare sq)
 
 fenSplit :: FENString -> Maybe (Tuple FENBoardString FENPropertyString)
-fenSplit (FEN s) = let parts = split (Pattern " ") s
+fenSplit s = let parts = split (Pattern " ") s
                        
-                       b :: Maybe String
-                       b = index parts 0
+                 b :: Maybe String
+                 b = index parts 0
                        
-                       p :: Maybe String
-                       p = index parts 1
+                 p :: Maybe String
+                 p = index parts 1
                        
-                   in map wrap (lift2 Tuple p b)
+             in map wrap (lift2 Tuple p b)
 
 wrap :: Tuple String String -> Tuple FENBoardString FENPropertyString
-wrap (Tuple p b) = Tuple (FENBoard b) (FENProps p)
+wrap (Tuple p b) = Tuple b p

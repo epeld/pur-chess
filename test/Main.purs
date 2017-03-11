@@ -56,9 +56,7 @@ testIt = runTest do
     
 
   suite "Parsing" do
-    let parseBoard = board <<< FENBoard
-        
-    testWith parseBoard "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR" \b -> do
+    testWith board "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR" \b -> do
       let pt = assertPieceType b
           pc = assertPieceColor b
       pt "e4" Pawn
@@ -100,24 +98,20 @@ testIt = runTest do
       with' parseTurn "b" \c -> c == Black
 
     test "FEN Properties" do
-      let pp = props <<< FENProps
-      with' pp "b KQkq e3 0 1" \p -> true
+      with' props "b KQkq e3 0 1" \p -> true
 
     test "FEN Splitting" do
-      let pp = propString <<< FEN
-          pb = boardString <<< FEN
-          fen = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"
+      let fen = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"
           
-      with' pp fen \s ->
-        s == FENProps "b KQkq e3 0 1"
+      with' propString fen \s ->
+        s == "b KQkq e3 0 1"
 
-      with' pb fen \s ->
-        s == FENBoard "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR"
+      with' boardString fen \s ->
+        s == "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR"
 
   suite "Move Logic" do
-    let parsePos = parsePosition <<< FEN
     test "??" do
-      with parsePos "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1" \p -> do
+      with parsePosition "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1" \p -> do
         isValidMove p "e4"
       
 assertPieceType b s pt = let msg = (unwords [show pt, "at", s])
