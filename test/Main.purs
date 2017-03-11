@@ -56,14 +56,19 @@ testIt = runTest do
 
   suite "Parsing" do
     withBoard "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR" \b -> do
-      assertPieceType b "e4" Pawn
-      assertPieceColor b "e4" White
-      assertPieceType b "g1" (Officer Knight)
-      assertPieceType b "a1" (Officer Rook)
-      assertPieceType b "c8" (Officer Bishop)
-      assertPieceType b "c7" Pawn
-      assertPieceColor b "c7" Black
-      assertPieceColor b "c2" White
+      let pt = assertPieceType b
+          pc = assertPieceColor b
+      pt "e4" Pawn
+      pc "e4" White
+      
+      pt "g1" (Officer Knight)
+      pt "a1" (Officer Rook)
+      pt "c8" (Officer Bishop)
+      
+      pt "c7" Pawn
+      pc "c7" Black
+      
+      pc "c2" White
 
   suite "Move Logic" do
     withPosition "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1" \p -> do
