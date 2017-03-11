@@ -510,6 +510,12 @@ data Color = White | Black
 data CastlingRight = Castle Side Color
 data Side = Queenside | Kingside
 
+side :: CastlingRight -> Side
+side (Castle s _) = s
+
+clr :: CastlingRight -> Color
+clr (Castle _ c) = c
+
 
 derive instance moveTypeEq :: Eq MoveType
 
