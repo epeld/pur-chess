@@ -705,6 +705,3 @@ fenSplit (FEN s) = let parts = split (Pattern " ") s
 
 wrap :: Tuple String String -> Tuple FENBoardString FENPropertyString
 wrap (Tuple p b) = Tuple (FENBoard b) (FENProps p)
-
-square' :: (Partial) => String -> Square
-square' s = fromJust (parseSquare s)
