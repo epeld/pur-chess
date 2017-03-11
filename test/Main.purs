@@ -4,8 +4,9 @@ import Prelude
 import Data.Maybe
 import Data.Functor
 import Data.Traversable
-import Data.String
+import Data.String hiding (length)
 import Data.Map
+import Data.Array
 import Control.Monad
 import Control.Monad.Aff
 import Control.Monad.Eff (Eff)
@@ -55,7 +56,9 @@ testIt = runTest do
     
 
   suite "Parsing" do
-    withBoard "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR" \b -> do
+    let parseBoard = board <<< FENBoard
+        
+    testWith parseBoard "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR" \b -> do
       let pt = assertPieceType b
           pc = assertPieceColor b
       pt "e4" Pawn
@@ -70,9 +73,29 @@ testIt = runTest do
       
       pc "c2" White
 
+    test "Passant" do
+      with' parsePassant "c3" \sq -> sq == parseSquare "c3"
+      with' parsePassant "-" \sq -> sq == Nothing
+
+      Assert.assert "garbage" $ parsePassant "wfwfs" == Nothing
+
+    test "Castling Rights" do
+      with parseRights "Kk" \r -> do
+        Assert.assert "length == 2" $ length r == 2
+        Assert.assert "All king side" $ all (\rt -> side rt == Kingside) r
+        
+      with parseRights "KQ" \r -> do
+        Assert.assert "length == 2" $ length r == 2
+        Assert.assert "All white" $ all (\rt -> clr rt == White) r
+
+      with parseRights "-" \r -> do
+        Assert.assert "length == 0" $ length r == 0
+
   suite "Move Logic" do
-    withPosition "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1" \p -> do
-      isValidMove p "e4"
+    let parsePos = parsePosition <<< FEN
+    test "??" do
+      with parsePos "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1" \p -> do
+        isValidMove p "e4"
       
 assertPieceType b s pt = let msg = (unwords [show pt, "at", s])
                          in assertPiece b s msg \pc -> pieceType pc == pt
@@ -80,18 +103,11 @@ assertPieceType b s pt = let msg = (unwords [show pt, "at", s])
 assertPieceColor b s c = let msg = (unwords [show c, "piece at", s])
                          in assertPiece b s msg \pc -> pieceColor pc == c
                                                         
-assertPiece b s msg pred = withSquare s \sq ->
+assertPiece b s msg pred = with parseSquare s \sq ->
   Assert.assert msg $ maybe false pred (pieceAt sq b)
 
 
 isValidMove _ _ = Assert.assert "resulting position is legal" $ true
-
-
-withPosition :: forall a. String -> (Position -> Test a) -> TestSuite a
-withPosition s f = test (unwords ["Position", s])
-                   (case parsePosition (FEN s) of
-                     Nothing -> Assert.assert (unwords ["Parses", s]) false
-                     Just pos -> f pos)
 
 
 withBoard :: forall a. String -> (Board -> Test a) -> TestSuite a
@@ -99,6 +115,19 @@ withBoard s f = test (unwords ["Board", s])
                 (case board (FENBoard s) of
                      Nothing -> Assert.assert (unwords ["Parses", s]) false
                      Just b -> f b)
+
+
+-- Helper for testing things that need to be parsed out first, e.g
+-- Parsing a position AND THEN running tests on it
+with p s f = case p s of
+  Nothing -> Assert.assert s false
+  Just sth -> f sth
+
+-- Helper for running quick tests on things that need to be parsed
+with' p s f = with p s (Assert.assert s <<< f)
+
+
+testWith p s f = test s $ with p s f
 
 
 withSquare s f = case parseSquare s of
