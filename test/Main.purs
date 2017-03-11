@@ -7,6 +7,7 @@ import Data.Traversable
 import Data.String hiding (length)
 import Data.Map
 import Data.Array
+import Data.Tuple
 import Control.Monad
 import Control.Monad.Aff
 import Control.Monad.Eff (Eff)
@@ -32,11 +33,6 @@ assertIdempotSquare sq =
      else Assert.assert (joinWith " " [sq, "!=", (fromMaybe "??" (decodeEncodeSquare sq))]) $ false
 
 
-testSquareEncode :: forall a f. (Foldable f) => f String -> TestSuite a
-testSquareEncode sqs = test "decoding, then encoding square is idempotent" do
-  traverse_ assertIdempotSquare sqs
-
-
 old = let 
            s = joinWith " " (map (show <<< squareString) squares)
        in consoleLog s
@@ -52,7 +48,10 @@ testIt = runTest do
       Assert.assert "Testing works" $ true
   
   suite "Basics" do
-    testSquareEncode ["e4", "c3", "b2", "f4", "a8", "h1"]
+    test "Squares" do
+      for_ ["e4", "c3", "b2", "f4", "a8", "h1", "a1"] \s ->
+        with' parseSquare s \sq ->
+          squareString sq == Just s
     
 
   suite "Parsing" do
@@ -112,10 +111,11 @@ testIt = runTest do
         s == "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR"
 
   suite "Move Logic" do
-    test "??" do
-      with parsePosition fen \p -> do
-        isValidMove p "e4"
-      
+    test (unwords ["In position", fen]) do
+      with parsePosition fen \p ->
+        with' (parseMove p) "d7d6" (isLegalMove p)
+
+
 assertPieceType b s pt = let msg = (unwords [show pt, "at", s])
                          in assertPiece b s msg \pc -> pieceType pc == pt
 
