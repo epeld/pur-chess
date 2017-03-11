@@ -91,6 +91,29 @@ testIt = runTest do
       with parseRights "-" \r -> do
         Assert.assert "length == 0" $ length r == 0
 
+    test "Move Number" do
+      with' parseInt "334" \x -> x == 334
+      with' parseInt "0" \x -> x == 0
+
+    test "Turn" do
+      with' parseTurn "w" \c -> c == White
+      with' parseTurn "b" \c -> c == Black
+
+    test "FEN Properties" do
+      let pp = props <<< FENProps
+      with' pp "b KQkq e3 0 1" \p -> true
+
+    test "FEN Splitting" do
+      let pp = propString <<< FEN
+          pb = boardString <<< FEN
+          fen = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"
+          
+      with' pp fen \s ->
+        s == FENProps "b KQkq e3 0 1"
+
+      with' pb fen \s ->
+        s == FENBoard "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR"
+
   suite "Move Logic" do
     let parsePos = parsePosition <<< FEN
     test "??" do
