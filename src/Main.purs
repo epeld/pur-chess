@@ -604,9 +604,9 @@ appendStrings = fromCharArray <<< concatMap toCharArray
 
 -- enumerate all the squares of the board (in FEN order)
 squares :: Array Square
-squares = let range = [1,2,3,4,5,6,7,8]
-          in concat (reverse range <#> \n -> do
-                        range <#> \m -> do
+squares = let range = [0,1,2,3,4,5,6,7]
+          in concat (reverse range <#> \m -> do
+                        range <#> \n -> do
                           Tuple n m)
 
 
