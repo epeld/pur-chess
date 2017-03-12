@@ -112,9 +112,11 @@ testIt = runTest do
 
   suite "Move Logic" do
     test (unwords ["In position", fen]) do
+      
       with parsePosition fen \p -> do
         Assert.assert "isLegal" $ isLegal p
         
+        with' (parseMove p) "d7d2" (not <<< isLegalMove p)
         with' (parseMove p) "d7d6" (isLegalMove p)
 
 
@@ -134,7 +136,7 @@ isValidMove _ _ = Assert.assert "resulting position is legal" $ true
 -- Helper for testing things that need to be parsed out first, e.g
 -- Parsing a position AND THEN running tests on it
 with p s f = case p s of
-  Nothing -> Assert.assert s false
+  Nothing -> Assert.assert (unwords ["Parse", s]) false
   Just sth -> f sth
 
 -- Helper for running quick tests on things that need to be parsed
