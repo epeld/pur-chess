@@ -692,7 +692,7 @@ flu f = fromCharArray <<< f <<< toCharArray
 
 parseSrcDst :: String -> Maybe (Tuple Square Square)
 parseSrcDst s = let fs = parseSquare (flu (take 2) s)
-                    sn = parseSquare (flu (drop 2 <<< take 2) s)
+                    sn = parseSquare (flu (take 2 <<< drop 2) s)
                 in Tuple <$> fs <*> sn
 
 
