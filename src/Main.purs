@@ -4,12 +4,13 @@ import Prelude
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (CONSOLE, log)
 
-import Data.Array (index, length, replicate, singleton, concat, zip, mapMaybe, range, elem, takeWhile, catMaybes, take, concatMap, reverse, findIndex, union, filter, intersect, null, elemIndex, drop)
+import Data.Array (index, length, replicate, singleton, concat, zip, mapMaybe, range, elem, takeWhile, catMaybes, take, concatMap, reverse, findIndex, union, filter, intersect, null, elemIndex, drop, groupBy, slice)
 import Data.Array as Array
+import Data.NonEmpty as NonEmpty
 import Data.String (Pattern(..), split, toCharArray, fromCharArray, joinWith)
 import Data.Tuple (Tuple(..), fst, snd, uncurry)
 import Data.Maybe (Maybe(..), isNothing, isJust, fromMaybe, maybe, fromJust)
-import Data.Char (toUpper)
+import Data.Char (toUpper, toLower)
 import Data.Traversable (traverse, for)
 import Data.Functor (mapFlipped, (<#>))
 import Data.Map
@@ -88,7 +89,7 @@ arrayKeys = List.toUnfoldable <<< keys
 -- A position is legal if the king cannot be attacked.
 isLegal :: Position -> Boolean
 isLegal p = let king = Piece (Officer King) (opponentPlayer p)
-                ksq = arrayKeys (filterPieces p (\pc -> pc == king))
+                ksq = arrayKeys (filterPieces p \pc -> pc == king)
                 
                 pcs = toUnfoldable (filterPieces p \pc -> pieceColor pc == (currentPlayer p))
                 asqs = concatMap (attacks p) pcs
@@ -556,6 +557,17 @@ derive instance pieceOrd :: Ord Piece
 derive instance pieceTypeEq :: Eq PieceType
 derive instance pieceTypeOrd :: Ord PieceType
 
+
+instance showCR :: Show CastlingRight where
+  show (Castle s c) = joinWith " " ["Castle", show s, show c]
+
+instance showSide :: Show Side where
+  show Kingside = "Kingside"
+  show Queenside = "Queenside"
+
+instance posShow :: Show Position where
+  show (Position b p) = joinWith " " ["Position", show b, show p.turn, "??"]
+
 instance showColor :: Show Color where
   show White = "White"
   show Black = "Black"
@@ -744,3 +756,38 @@ fenSplit s = let parts = split (Pattern " ") s
 
 wrap :: Tuple String String -> Tuple FENBoardString FENPropertyString
 wrap (Tuple p b) = Tuple b p
+
+-- TODO write FEN encode
+
+rlePieces :: Maybe Piece -> Maybe Piece -> Boolean
+rlePieces Nothing Nothing = true
+rlePieces _ _ = false
+
+
+colorCase :: Color -> Char -> Char
+colorCase White = toUpper
+colorCase Black = toLower
+
+pieceTypeChar :: PieceType -> Char
+pieceTypeChar Pawn = 'p'
+pieceTypeChar (Officer o) = officerTypeChar o
+
+officerTypeChar :: OfficerType -> Char
+officerTypeChar Knight = 'n'
+officerTypeChar Bishop = 'b'
+officerTypeChar Rook = 'r'
+officerTypeChar King = 'k'
+officerTypeChar Queen = 'q'
+
+encodePiece :: Piece -> String
+encodePiece (Piece pt c) = fromCharArray [colorCase c (pieceTypeChar pt)]
+
+rleEncode :: Array (Maybe Piece) -> String
+rleEncode pcs = joinWith "" (groupBy rlePieces pcs <#> \x ->
+                              case NonEmpty.head x of
+                                Nothing -> show (NonEmpty.fromNonEmpty (\_ b -> 1 + length b) x)
+                                Just pc -> encodePiece pc)
+
+
+rleRows :: Array (Array Square)
+rleRows = range 0 7 <#> \ix -> slice (7 * ix) (8 * ix) squares
