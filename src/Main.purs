@@ -96,7 +96,7 @@ isLegal p = let king = Piece (Officer King) (opponentPlayer p)
 
 
 -- Helper, to simplify isLegal
-attacks :: Position -> Tuple (Tuple Int Int) Piece -> Array (Tuple Int Int)
+attacks :: Position -> Tuple Square Piece -> Array Square
 attacks p (Tuple sq pc) = attackRange pc sq p
 
 
@@ -105,7 +105,12 @@ filterPieces p pred = filterMap (pred <<< snd) (positionBoard p)
 
 
 perform :: FullMove -> Position -> Maybe Position
-perform mv p = Position <$> newboard mv p <*> pure (newprops mv p)
+perform mv p =
+  let pc = Piece mv.pieceType (currentPlayer p)
+      range = concat (pieceRange mv.moveType pc mv.source p)
+  in if elem mv.destination range
+     then Position <$> newboard mv p <*> pure (newprops mv p)
+     else Nothing
 
 
 newboard :: FullMove -> Position -> Maybe Board
